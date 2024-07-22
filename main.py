@@ -23,6 +23,7 @@ red = (255, 0, 0)
 dark_red = (139, 0, 0)
 light_red = (255, 99, 71)
 green = (0, 255, 0)
+dark_green = (0, 100, 0)
 dark_orange = (255, 140, 0)
 black = (0, 0, 0)
 
@@ -45,12 +46,14 @@ enemy_radius = 22
 enemy_spawn_counter = 0
 enemies = []
 enemy_move_counter = 0
+spawn_row, spawn_col = 0, 0
 
 # Flags
 game_over = False
 spawn_flag = True
 first_draw = True
-ghost_flag = True
+ghost_flag_move = True
+ghost_flag_spawn = True
 quit_game = False
 reset_flag = False
 
@@ -166,7 +169,7 @@ class Enemy(py.sprite.Sprite):
         self.set_grid()
     
     def draw_movement_ghost(self):
-        global ghost_flag
+        global ghost_flag_move
 
         ghost_pos = [self.x, self.y]
         if self.direction == 0:
@@ -179,7 +182,7 @@ class Enemy(py.sprite.Sprite):
             ghost_pos[0] = self.x - step_size
 
         py.draw.circle(screen, red, (ghost_pos), (enemy_radius - 10))
-        ghost_flag = False
+        ghost_flag_move = False
         
 
     def remove_movement_ghost(self):
@@ -196,7 +199,7 @@ class Enemy(py.sprite.Sprite):
             enemy.draw_enemy()
             enemy.screen_walls()
 
-        ghost_flag = True 
+        ghost_flag_move = True 
 
     def move_enemy(self):
         global enemy_move_counter
@@ -224,21 +227,38 @@ class Enemy(py.sprite.Sprite):
             self.y = screen_height - (grid_size[1] / 2)
 
 
-def spawn_enemy():
-    global enemy_spawn_counter, spawn_flag
+def draw_spawn_ghost(pos):
+    global ghost_flag_spawn
 
-    rand_row = randint(0, num_rows - 1)
-    rand_col = randint(0, num_cols - 1)
+    ghost_pos = pos
+
+    py.draw.circle(screen, dark_green, (ghost_pos), (enemy_radius - 10))
+    ghost_flag_spawn = False
+
+def set_spawn_grid():
+    global spawn_row, spawn_col
+
+    spawn_row = randint(0, num_rows - 1)
+    spawn_col = randint(0, num_cols - 1)
+
+    if spawn_row == player.grid[1] and spawn_col == player.grid[0]:
+        spawn_row = randint(0, num_rows - 1)
+        spawn_col = randint(0, num_cols - 1)
+
+    spawn_x, spawn_y = grids[spawn_row][spawn_col]
+    return spawn_x, spawn_y
+
+def spawn_enemy(pos):
+    global enemy_spawn_counter, spawn_flag
 
     if enemy_spawn_counter == 3:
         spawn_flag = True
         enemy_spawn_counter = 0
 
-    if spawn_flag:
-        center_x, center_y = grids[rand_row][rand_col]
-        new_enemy = Enemy(center_x, center_y)  # Create a new enemy at the chosen position
+    if spawn_flag: 
+        new_enemy = Enemy(pos[0], pos[1])  # Create a new enemy at the chosen position
         # Assuming you have a list to store enemies
-        enemies.append(new_enemy)  # Add the new enemy to the list
+        enemies.append(new_enemy)
         new_enemy.draw_enemy  # Draw all the enemies on the screen
         spawn_flag = False
 
@@ -260,7 +280,7 @@ def check_collision():
     return False
 
 def reset_game():
-    global game_over, player, enemies, enemy_spawn_counter, player_move_counter, enemy_move_counter, spawn_flag, first_draw, ghost_flag
+    global game_over, player, enemies, enemy_spawn_counter, player_move_counter, enemy_move_counter, spawn_flag, first_draw, ghost_flag_move
 
     game_over = False
     player = Player()
@@ -270,13 +290,14 @@ def reset_game():
     enemy_move_counter = 0
     spawn_flag = True
     first_draw = True
-    ghost_flag = True
+    ghost_flag_move = True
 
 def game_over_screen():
     global game_over, quit_game
+    
 
     game_over = True
-    
+
     # Draw the rectangle
     py.draw.rect(screen, (0, 0, 0), (screen_witdh // 4, screen_height // 2 - 50, screen_witdh // 2, 100))
     # Game Over Text
@@ -284,11 +305,6 @@ def game_over_screen():
     text_surf = font.render('Game Over! Play again? Y/N', True, (255, 255, 255))
     screen.blit(text_surf, (screen_witdh // 4 + 10, screen_height // 2 - 20))
     
-    if py.key.get_pressed()[py.K_y]:
-        reset_game()
-    elif py.key.get_pressed()[py.K_n]:
-        quit_game = True
-
 
     # Set Objects
 player = Player()
@@ -296,11 +312,12 @@ player = Player()
 set_grids()
 
     # Main loop
-while not game_over:
-
+while not quit_game:
     
     # Set frames per second
     clock.tick(fps)
+
+    spawn_pos = set_spawn_grid()
 
     screen.fill(light_blue)
 
@@ -312,6 +329,11 @@ while not game_over:
     for enemy in enemies:
         enemy.draw_enemy()
         enemy.screen_walls()
+        if player_move_counter == 1:
+            enemy.draw_movement_ghost()
+
+    if player_move_counter == 2:
+        draw_spawn_ghost(spawn_pos)
 
     collision = check_collision()
     if collision:
@@ -322,25 +344,27 @@ while not game_over:
         # Key events
         if event.type == py.KEYDOWN:
 
-            spawn_enemy()
+            if not game_over:
+                spawn_enemy(spawn_pos)
 
-            player.move_step(event.key)
-            
-            enemy_move_counter = player_move_counter
-            enemy_spawn_counter += 1
+                player.move_step(event.key)
+                
+                enemy_move_counter = player_move_counter
+                enemy_spawn_counter += 1
 
-            for enemy in enemies:
-                if player_move_counter == 1:
-                    enemy.direction = randint(0, 3)
-                enemy.draw_movement_ghost()
-                enemy.move_enemy()
+                for enemy in enemies:
+                    if player_move_counter == 1:
+                        enemy.direction = randint(0, 3)
+                    enemy.move_enemy()
 
-            if player_move_counter == 2:
-                enemy_move_counter = 0
-                player_move_counter = 0
-
-            
-        
+                if player_move_counter == 2:
+                    enemy_move_counter = 0
+                    player_move_counter = 0
+            else:
+                if event.key == py.K_y:
+                    reset_game()
+                elif event.key == py.K_n:
+                    quit_game = True
 
         # Quit event
         if event.type == py.QUIT or quit_game:
