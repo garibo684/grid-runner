@@ -51,6 +51,8 @@ game_over = False
 spawn_flag = True
 first_draw = True
 ghost_flag = True
+quit_game = False
+reset_flag = False
 
 
     # Display
@@ -91,6 +93,7 @@ class Player(py.sprite.Sprite):
         self.rect.y = rect_position[1]
         self.rect.width = rect_size[0]
         self.rect.height = rect_size[1]
+        self.grid = (0, 0)
 
     # Methods
 
@@ -107,6 +110,8 @@ class Player(py.sprite.Sprite):
         elif key == py.K_RIGHT:
             self.rect.x += step_size
         
+        self.set_grid()
+
         player_move_counter += 1
         enemy_move_counter += 1
 
@@ -117,9 +122,13 @@ class Player(py.sprite.Sprite):
         for y in range(0, screen_height, grid_size[1]):
             py.draw.line(screen, black, (0, y), (screen_witdh, y))
 
+    def set_grid(self):
+        self.grid = (self.rect.x // grid_size[0], self.rect.y // grid_size[1])
+
     # Draw player rectangle
     def draw_player(self):
         py.draw.rect(screen, self.color, (self.rect.x, self.rect.y, self.rect.width, self.rect.height))
+        self.set_grid()
 
     # Draw everything
     def draw(self):
@@ -147,9 +156,14 @@ class Enemy(py.sprite.Sprite):
         self.x = spawn_pos_x
         self.y = spawn_pos_y
         self.direction = 0
+        self.grid = (0, 0)
+
+    def set_grid(self):
+        self.grid = (self.x // grid_size[0], self.y // grid_size[1])    
 
     def draw_enemy(self):
         py.draw.circle(screen, self.color, (self.x, self.y), enemy_radius)
+        self.set_grid()
     
     def draw_movement_ghost(self):
         global ghost_flag
@@ -197,6 +211,8 @@ class Enemy(py.sprite.Sprite):
             elif self.direction == 3:
                 self.x -= step_size
 
+            self.set_grid()
+
     def screen_walls(self):
         if self.x <= 0:
             self.x = grid_size[0] / 2
@@ -226,6 +242,53 @@ def spawn_enemy():
         new_enemy.draw_enemy  # Draw all the enemies on the screen
         spawn_flag = False
 
+def check_collision():
+    player_rect = py.Rect(player.rect.x, player.rect.y, player.rect.width, player.rect.height)
+    for enemy in enemies:
+        enemy_rect = py.Rect(enemy.x - enemy_radius, enemy.y - enemy_radius, enemy_radius * 2, enemy_radius * 2)
+        for another_enemy in enemies:
+            if enemy != another_enemy:
+                another_enemy_rect = py.Rect(another_enemy.x - enemy_radius, another_enemy.y - enemy_radius, enemy_radius * 2, enemy_radius * 2)
+                if enemy_rect.colliderect(another_enemy_rect) or (enemy.grid == another_enemy.grid):
+                    enemies.remove(another_enemy)
+        
+        if player_rect.colliderect(enemy_rect) or (player.grid == enemy.grid):
+            return True
+        
+        
+
+    return False
+
+def reset_game():
+    global game_over, player, enemies, enemy_spawn_counter, player_move_counter, enemy_move_counter, spawn_flag, first_draw, ghost_flag
+
+    game_over = False
+    player = Player()
+    enemies = []
+    enemy_spawn_counter = 0
+    player_move_counter = 0
+    enemy_move_counter = 0
+    spawn_flag = True
+    first_draw = True
+    ghost_flag = True
+
+def game_over_screen():
+    global game_over, quit_game
+
+    game_over = True
+    
+    # Draw the rectangle
+    py.draw.rect(screen, (0, 0, 0), (screen_witdh // 4, screen_height // 2 - 50, screen_witdh // 2, 100))
+    # Game Over Text
+    font = py.font.SysFont(None, 36)
+    text_surf = font.render('Game Over! Play again? Y/N', True, (255, 255, 255))
+    screen.blit(text_surf, (screen_witdh // 4 + 10, screen_height // 2 - 20))
+    
+    if py.key.get_pressed()[py.K_y]:
+        reset_game()
+    elif py.key.get_pressed()[py.K_n]:
+        quit_game = True
+
 
     # Set Objects
 player = Player()
@@ -250,6 +313,9 @@ while not game_over:
         enemy.draw_enemy()
         enemy.screen_walls()
 
+    collision = check_collision()
+    if collision:
+        game_over_screen()
     
     # Event loop
     for event in py.event.get():
@@ -264,7 +330,8 @@ while not game_over:
             enemy_spawn_counter += 1
 
             for enemy in enemies:
-                enemy.direction = randint(0, 3)
+                if player_move_counter == 1:
+                    enemy.direction = randint(0, 3)
                 enemy.draw_movement_ghost()
                 enemy.move_enemy()
 
@@ -276,8 +343,9 @@ while not game_over:
         
 
         # Quit event
-        if event.type == py.QUIT:
-            game_over = True
+        if event.type == py.QUIT or quit_game:
+            game_over = False
+            quit_game = False
             py.quit()
             sys.exit()
 
