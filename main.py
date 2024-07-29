@@ -1,5 +1,4 @@
 import sys
-from time import sleep
 import pygame as py
 from random import randint
 
@@ -27,8 +26,6 @@ dark_green = (0, 100, 0)
 dark_orange = (255, 140, 0)
 black = (0, 0, 0)
 background_color = (180, 213, 224)
-
-# Objects
 
 # Grid
 grid_size = (50, 50)
@@ -67,26 +64,10 @@ screen = py.display.set_mode((screen_witdh, screen_height))
 py.display.set_caption("Grid Runner")
 
 
-# Functions
-def set_grids():
-    # Loop through each row
-    for row in range(num_rows):
-        # Initialize an empty list for this row
-        rows = []
-        # Loop through each column in the row
-        for col in range(num_cols):
-            # Calculate the center position for this grid cell
-            center_x = (col * grid_size[0]) + (grid_size[0] // 2)
-            center_y = (row * grid_size[1]) + (grid_size[1] // 2)
-            # Append the center position to the row list
-            rows.append((center_x, center_y))
-        # Append the row list to the grid_centers list
-        grids.append(rows)
-
-    # Classes
+# Classes
 
 
-# Player
+# Player Class
 class Player(py.sprite.Sprite):
 
     # Constructor
@@ -108,6 +89,7 @@ class Player(py.sprite.Sprite):
     def move_step(self, key):
         global player_move_counter, enemy_move_counter, player_score, high_score
 
+        # Detect move direction
         if key == py.K_UP:
             self.rect.y -= step_size
         elif key == py.K_DOWN:
@@ -117,12 +99,15 @@ class Player(py.sprite.Sprite):
         elif key == py.K_RIGHT:
             self.rect.x += step_size
 
+        # Set new grid position
         self.set_grid()
 
+        # Update counters
         player_move_counter += 1
         enemy_move_counter += 1
         player_score += 1
 
+        # Update high score
         if player_score > high_score:
             high_score = player_score
 
@@ -133,6 +118,7 @@ class Player(py.sprite.Sprite):
         for y in range(0, screen_height, grid_size[1]):
             py.draw.line(screen, black, (0, y), (screen_witdh, y))
 
+    # Set player grid position
     def set_grid(self):
         self.grid = (self.rect.x // grid_size[0], self.rect.y // grid_size[1])
 
@@ -143,9 +129,11 @@ class Player(py.sprite.Sprite):
             self.color,
             (self.rect.x, self.rect.y, self.rect.width, self.rect.height),
         )
+
+        # Set player grid position
         self.set_grid()
 
-    # Draw everything
+    # Draw player and grids
     def draw(self):
         self.draw_grid()
         self.draw_player()
@@ -162,7 +150,7 @@ class Player(py.sprite.Sprite):
             self.rect.y = screen_height - rect_size[1]
 
 
-# Enemy
+# Enemy Class
 class Enemy(py.sprite.Sprite):
     # Constructor
     def __init__(self, spawn_pos_x, spawn_pos_y):
@@ -174,13 +162,20 @@ class Enemy(py.sprite.Sprite):
         self.direction = 0
         self.grid = (0, 0)
 
+    # Methods
+
+    # Set enemy grid position
     def set_grid(self):
         self.grid = (self.x // grid_size[0], self.y // grid_size[1])
 
+    # Draw enemy circle
     def draw_enemy(self):
+
         py.draw.circle(screen, self.color, (self.x, self.y), enemy_radius)
+
         self.set_grid()
 
+    # Draw small circles for enemy movement preview
     def draw_movement_ghost(self):
         global ghost_flag_move
 
@@ -197,22 +192,7 @@ class Enemy(py.sprite.Sprite):
         py.draw.circle(screen, red, (ghost_pos), (enemy_radius - 10))
         ghost_flag_move = False
 
-    def remove_movement_ghost(self):
-        global gost_flag
-
-        screen.fill(background_color)
-
-        # Player
-        player.draw()
-        player.screen_walls()
-
-        # Enemy
-        for enemy in enemies:
-            enemy.draw_enemy()
-            enemy.screen_walls()
-
-        ghost_flag_move = True
-
+    # Move enemy
     def move_enemy(self):
         global enemy_move_counter
 
@@ -228,6 +208,7 @@ class Enemy(py.sprite.Sprite):
 
             self.set_grid()
 
+    # Limit enemy to screen
     def screen_walls(self):
         if self.x <= 0:
             self.x = grid_size[0] / 2
@@ -239,6 +220,27 @@ class Enemy(py.sprite.Sprite):
             self.y = screen_height - (grid_size[1] / 2)
 
 
+# Functions
+
+
+# Set grids for the game
+def set_grids():
+    # Loop through each row
+    for row in range(num_rows):
+        # Initialize an empty list for this row
+        rows = []
+        # Loop through each column in the row
+        for col in range(num_cols):
+            # Calculate the center position for this grid cell
+            center_x = (col * grid_size[0]) + (grid_size[0] // 2)
+            center_y = (row * grid_size[1]) + (grid_size[1] // 2)
+            # Append the center position to the row list
+            rows.append((center_x, center_y))
+        # Append the row list to the grid_centers list
+        grids.append(rows)
+
+
+# Draw circle for enemy spawn preview
 def draw_spawn_ghost(ghost_pos):
     global ghost_flag_spawn
 
@@ -246,44 +248,53 @@ def draw_spawn_ghost(ghost_pos):
     ghost_flag_spawn = False
 
 
+# Set spawn grid for enemy
 def set_spawn_grid():
     global spawn_row, spawn_col
 
+    # Randomly choose a grid cell
     spawn_row = randint(0, num_rows - 1)
     spawn_col = randint(0, num_cols - 1)
 
+    # Check if player is in the spawn grid
     if spawn_row == player.grid[1] and spawn_col == player.grid[0]:
         spawn_row = randint(0, num_rows - 1)
         spawn_col = randint(0, num_cols - 1)
 
+    # Check if another enemy is in the spawn grid
     for enemy in enemies:
         if spawn_row == enemy.grid[1] and spawn_col == enemy.grid[0]:
             spawn_row = randint(0, num_rows - 1)
             spawn_col = randint(0, num_cols - 1)
 
+    # Return the position of chosen grid cell
     spawn_x, spawn_y = grids[spawn_row][spawn_col]
     return spawn_x, spawn_y
 
 
+# Spawn enemy
 def spawn_enemy(pos):
     global enemy_spawn_counter, spawn_flag, spawn_pos, spawn_move_flag
 
+    # Check if enough movement has been made to spawn an enemy
     if enemy_spawn_counter == 3:
         spawn_flag = True
         enemy_spawn_counter = 0
 
     if spawn_flag:
         new_enemy = Enemy(pos[0], pos[1])  # Create a new enemy at the chosen position
-        # Assuming you have a list to store enemies
         enemies.append(new_enemy)
-        new_enemy.draw_enemy  # Draw all the enemies on the screen
         spawn_flag = False
-        if enemy_move_counter == 2:
+        if (
+            enemy_move_counter == 2
+        ):  # Check if the enemy movement and spawn happen on same movement
             spawn_move_flag = True
 
+    # Set new spawn position
     spawn_pos = set_spawn_grid()
 
 
+# Check collision between player and enemy or enemy and enemy
 def check_collision():
     player_rect = py.Rect(
         player.rect.x, player.rect.y, player.rect.width, player.rect.height
@@ -295,7 +306,7 @@ def check_collision():
             enemy_radius * 2,
             enemy_radius * 2,
         )
-        for another_enemy in enemies:
+        for another_enemy in enemies:  # Check collision between enemies
             if enemy != another_enemy:
                 another_enemy_rect = py.Rect(
                     another_enemy.x - enemy_radius,
@@ -306,20 +317,23 @@ def check_collision():
                 if enemy_rect.colliderect(another_enemy_rect) or (
                     enemy.grid == another_enemy.grid
                 ):
-                    enemies.remove(another_enemy)
+                    enemies.remove(another_enemy)  # Remove the enemy that collided
 
+        # Check collision between player and enemy
         if player_rect.colliderect(enemy_rect) or (player.grid == enemy.grid):
             return True
 
     return False
 
 
+# Display score
 def display_score():
     font = py.font.SysFont(None, 36)
     score_surf = font.render(f"Score: {player_score}", True, (255, 255, 255))
     screen.blit(score_surf, (10, 10))
 
 
+# Reset game parameters
 def reset_game():
     global game_over, player, enemies, enemy_spawn_counter, player_move_counter, enemy_move_counter, spawn_flag, first_draw, ghost_flag_move, player_score
 
@@ -335,6 +349,7 @@ def reset_game():
     ghost_flag_move = True
 
 
+# Display game over screen
 def game_over_screen():
     global game_over, quit_game
 
@@ -354,19 +369,22 @@ def game_over_screen():
     score_surf = font.render(f"    Score: {player_score}", True, (dark_orange))
     high_score_surf = font.render(f"    High Score: {high_score}", True, (green))
 
+    # Set text position
     screen.blit(text_surf, (screen_witdh // 4 + 50, screen_height // 2 - 80))
     screen.blit(score_surf, (screen_witdh // 4 + 50, screen_height // 2))
     screen.blit(high_score_surf, (screen_witdh // 4 + 50, screen_height // 2 - 35))
     screen.blit(play_again_surf, (screen_witdh // 4 + 50, screen_height // 2 + 50))
 
-    # Set Objects
 
-
+# Initialize game parameters
 player = Player()
 
 set_grids()
+
 spawn_pos = set_spawn_grid()
+
 draw_spawn_ghost(spawn_pos)
+
 
 # Main loop
 while not quit_game:
@@ -374,6 +392,7 @@ while not quit_game:
     # Set frames per second
     clock.tick(fps)
 
+    # Fill screen with background color
     screen.fill(background_color)
 
     # Player
@@ -404,6 +423,7 @@ while not quit_game:
             if not game_over:
                 first_draw = False
 
+                # Player movement
                 player.move_step(event.key)
 
                 spawn_enemy(spawn_pos)
@@ -414,9 +434,13 @@ while not quit_game:
 
                 for enemy in enemies:
                     if player_move_counter == 1:
-                        enemy.direction = randint(0, 3)
+                        enemy.direction = randint(
+                            0, 3
+                        )  # Randomly choose a direction for enemy movement
 
-                    if spawn_move_flag and enemy == enemies[-1]:
+                    if (
+                        spawn_move_flag and enemy == enemies[-1]
+                    ):  # Check if the enemy movement and spawn happen on same movement
                         spawn_move_flag = False
                     else:
                         enemy.move_enemy()
