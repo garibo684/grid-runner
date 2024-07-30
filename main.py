@@ -1,6 +1,7 @@
 import sys
 import pygame as py
 from random import randint
+from os import path
 
 py.init()
 
@@ -26,6 +27,8 @@ dark_green = (0, 100, 0)
 dark_orange = (255, 140, 0)
 black = (0, 0, 0)
 background_color = (180, 213, 224)
+dark_purple = (128, 0, 128)
+purple = (148, 0, 211)
 
 # Grid
 grid_size = (50, 50)
@@ -47,6 +50,7 @@ enemy_spawn_counter = 0
 enemies = []
 enemy_move_counter = 0
 spawn_row, spawn_col = 0, 0
+enemy_types = ["circle", "cross"]
 
 # Flags
 game_over = False
@@ -161,6 +165,7 @@ class Enemy(py.sprite.Sprite):
         self.y = spawn_pos_y
         self.direction = 0
         self.grid = (0, 0)
+        self.type = enemy_types[0]
 
     # Methods
 
@@ -171,7 +176,24 @@ class Enemy(py.sprite.Sprite):
     # Draw enemy circle
     def draw_enemy(self):
 
-        py.draw.circle(screen, self.color, (self.x, self.y), enemy_radius)
+        if self.type == "circle":
+            py.draw.circle(screen, self.color, (self.x, self.y), enemy_radius)
+
+        elif self.type == "cross":
+            py.draw.line(
+                screen,
+                self.color,
+                (self.x + 18, self.y + 18),
+                (self.x - 18, self.y - 18),
+                10,
+            )
+            py.draw.line(
+                screen,
+                self.color,
+                (self.x + 18, self.y - 18),
+                (self.x - 18, self.y + 18),
+                10,
+            )
 
         self.set_grid()
 
@@ -180,16 +202,47 @@ class Enemy(py.sprite.Sprite):
         global ghost_flag_move
 
         ghost_pos = [self.x, self.y]
-        if self.direction == 0:
-            ghost_pos[1] = self.y - step_size
-        elif self.direction == 1:
-            ghost_pos[0] = self.x + step_size
-        elif self.direction == 2:
-            ghost_pos[1] = self.y + step_size
-        elif self.direction == 3:
-            ghost_pos[0] = self.x - step_size
 
-        py.draw.circle(screen, red, (ghost_pos), (enemy_radius - 10))
+        if self.type == "circle":
+            if self.direction == 0:
+                ghost_pos[1] = self.y - step_size
+            elif self.direction == 1:
+                ghost_pos[0] = self.x + step_size
+            elif self.direction == 2:
+                ghost_pos[1] = self.y + step_size
+            elif self.direction == 3:
+                ghost_pos[0] = self.x - step_size
+
+            py.draw.circle(screen, red, (ghost_pos), (enemy_radius - 10))
+
+        elif self.type == "cross":
+            if self.direction == 0:
+                ghost_pos[0] = self.x - step_size
+                ghost_pos[1] = self.y - step_size
+            elif self.direction == 1:
+                ghost_pos[0] = self.x + step_size
+                ghost_pos[1] = self.y - step_size
+            elif self.direction == 2:
+                ghost_pos[0] = self.x + step_size
+                ghost_pos[1] = self.y + step_size
+            elif self.direction == 3:
+                ghost_pos[0] = self.x - step_size
+                ghost_pos[1] = self.y + step_size
+
+            py.draw.line(
+                screen,
+                purple,
+                (ghost_pos[0] + 6, ghost_pos[1] + 6),
+                (ghost_pos[0] - 6, ghost_pos[1] - 6),
+                5,
+            )
+            py.draw.line(
+                screen,
+                purple,
+                (ghost_pos[0] + 6, ghost_pos[1] - 6),
+                (ghost_pos[0] - 6, ghost_pos[1] + 6),
+                5,
+            )
         ghost_flag_move = False
 
     # Move enemy
@@ -197,14 +250,30 @@ class Enemy(py.sprite.Sprite):
         global enemy_move_counter
 
         if enemy_move_counter == 2:
-            if self.direction == 0:
-                self.y -= step_size
-            elif self.direction == 1:
-                self.x += step_size
-            elif self.direction == 2:
-                self.y += step_size
-            elif self.direction == 3:
-                self.x -= step_size
+
+            if self.type == "circle":
+                if self.direction == 0:
+                    self.y -= step_size
+                elif self.direction == 1:
+                    self.x += step_size
+                elif self.direction == 2:
+                    self.y += step_size
+                elif self.direction == 3:
+                    self.x -= step_size
+
+            elif self.type == "cross":
+                if self.direction == 0:
+                    self.x -= step_size
+                    self.y -= step_size
+                elif self.direction == 1:
+                    self.x += step_size
+                    self.y -= step_size
+                elif self.direction == 2:
+                    self.x += step_size
+                    self.y += step_size
+                elif self.direction == 3:
+                    self.x -= step_size
+                    self.y += step_size
 
             self.set_grid()
 
@@ -218,6 +287,12 @@ class Enemy(py.sprite.Sprite):
             self.x = screen_witdh - (grid_size[0] / 2)
         if self.y >= screen_height - enemy_radius:
             self.y = screen_height - (grid_size[1] / 2)
+
+    def set_color(self):
+        if self.type == "circle":
+            self.color = dark_red
+        elif self.type == "cross":
+            self.color = dark_purple
 
 
 # Functions
@@ -283,7 +358,14 @@ def spawn_enemy(pos):
 
     if spawn_flag:
         new_enemy = Enemy(pos[0], pos[1])  # Create a new enemy at the chosen position
+
+        if player_score > 30:
+            new_enemy.type = enemy_types[randint(0, 1)]  # Randomly choose enemy type
+
+        new_enemy.set_color()
+
         enemies.append(new_enemy)
+
         spawn_flag = False
         if (
             enemy_move_counter == 2
@@ -375,8 +457,25 @@ def game_over_screen():
     screen.blit(high_score_surf, (screen_witdh // 4 + 50, screen_height // 2 - 35))
     screen.blit(play_again_surf, (screen_witdh // 4 + 50, screen_height // 2 + 50))
 
+    save_high_score()
+
+
+def save_high_score():
+    with open("high_score.txt", "w") as file:
+        file.write(str(high_score))
+
+
+def load_high_score():
+    if path.exists("high_score.txt"):
+        with open("high_score.txt", "r") as file:
+            return int(file.read())
+    else:
+        return 0
+
 
 # Initialize game parameters
+high_score = load_high_score()
+
 player = Player()
 
 set_grids()
@@ -458,6 +557,7 @@ while not quit_game:
         if event.type == py.QUIT or quit_game:
             game_over = False
             quit_game = False
+
             py.quit()
             sys.exit()
 
