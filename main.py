@@ -12,7 +12,7 @@ clock = py.time.Clock()
 fps = 30
 
 # Screen
-resolution = (800, 600)
+resolution = (1200, 750)
 screen_witdh = resolution[0]
 screen_height = resolution[1]
 
@@ -51,6 +51,8 @@ enemies = []
 enemy_move_counter = 0
 spawn_row, spawn_col = 0, 0
 enemy_types = ["circle", "cross"]
+spawn_positions = []
+num_of_spawn_enemies = 3
 
 # Flags
 game_over = False
@@ -316,10 +318,13 @@ def set_grids():
 
 
 # Draw circle for enemy spawn preview
-def draw_spawn_ghost(ghost_pos):
+def draw_spawn_ghost(ghost_positions):
     global ghost_flag_spawn
 
-    py.draw.circle(screen, dark_green, (ghost_pos), (enemy_radius - 10))
+    for pos in ghost_positions:
+        ghost_pos = [pos[0], pos[1]]
+        py.draw.circle(screen, dark_green, (ghost_pos), (enemy_radius - 10))
+
     ghost_flag_spawn = False
 
 
@@ -344,12 +349,12 @@ def set_spawn_grid():
 
     # Return the position of chosen grid cell
     spawn_x, spawn_y = grids[spawn_row][spawn_col]
-    return spawn_x, spawn_y
+    return (spawn_x, spawn_y)
 
 
 # Spawn enemy
-def spawn_enemy(pos):
-    global enemy_spawn_counter, spawn_flag, spawn_pos, spawn_move_flag
+def spawn_enemy(positions):
+    global enemy_spawn_counter, spawn_flag, spawn_move_flag
 
     # Check if enough movement has been made to spawn an enemy
     if enemy_spawn_counter == 3:
@@ -357,23 +362,25 @@ def spawn_enemy(pos):
         enemy_spawn_counter = 0
 
     if spawn_flag:
-        new_enemy = Enemy(pos[0], pos[1])  # Create a new enemy at the chosen position
 
-        if player_score > 30:
-            new_enemy.type = enemy_types[randint(0, 1)]  # Randomly choose enemy type
+        for pos in positions:
+            new_enemy = Enemy(pos[0], pos[1])
 
-        new_enemy.set_color()
+            if player_score > 30:
+                new_enemy.type = enemy_types[randint(0, 1)]
 
-        enemies.append(new_enemy)
+            new_enemy.set_color()
+
+            enemies.append(new_enemy)
 
         spawn_flag = False
-        if (
-            enemy_move_counter == 2
-        ):  # Check if the enemy movement and spawn happen on same movement
+        if enemy_move_counter == 2:
             spawn_move_flag = True
 
-    # Set new spawn position
-    spawn_pos = set_spawn_grid()
+    positions.clear()
+
+    for num in range(num_of_spawn_enemies):
+        positions.append(set_spawn_grid())
 
 
 # Check collision between player and enemy or enemy and enemy
@@ -473,6 +480,13 @@ def load_high_score():
         return 0
 
 
+def spawn_move_compare(current_enemy, enemies):
+    for num in range(1, num_of_spawn_enemies + 1):
+        if current_enemy == enemies[-num]:
+            return True
+    return False
+
+
 # Initialize game parameters
 high_score = load_high_score()
 
@@ -480,9 +494,8 @@ player = Player()
 
 set_grids()
 
-spawn_pos = set_spawn_grid()
-
-draw_spawn_ghost(spawn_pos)
+for num in range(num_of_spawn_enemies):
+    spawn_positions.append(set_spawn_grid())
 
 
 # Main loop
@@ -506,7 +519,7 @@ while not quit_game:
             enemy.draw_movement_ghost()
 
     if enemy_spawn_counter == 3 or first_draw:
-        draw_spawn_ghost(spawn_pos)
+        draw_spawn_ghost(spawn_positions)
 
     collision = check_collision()
     if collision:
@@ -525,7 +538,7 @@ while not quit_game:
                 # Player movement
                 player.move_step(event.key)
 
-                spawn_enemy(spawn_pos)
+                spawn_enemy(spawn_positions)
 
                 enemy_move_counter = player_move_counter
                 enemy_spawn_counter += 1
@@ -533,16 +546,14 @@ while not quit_game:
 
                 for enemy in enemies:
                     if player_move_counter == 1:
-                        enemy.direction = randint(
-                            0, 3
-                        )  # Randomly choose a direction for enemy movement
+                        enemy.direction = randint(0, 3)
 
-                    if (
-                        spawn_move_flag and enemy == enemies[-1]
-                    ):  # Check if the enemy movement and spawn happen on same movement
-                        spawn_move_flag = False
+                    if spawn_move_flag and spawn_move_compare(enemy, enemies):
+                        pass
                     else:
                         enemy.move_enemy()
+
+                spawn_move_flag = False
 
                 if player_move_counter == 2:
                     enemy_move_counter = 0
