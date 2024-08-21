@@ -1,6 +1,6 @@
 import sys
 import pygame as py
-from random import randint
+from random import randint, choices
 from os import path
 
 py.init()
@@ -19,6 +19,7 @@ screen_height = resolution[1]
 # Colors
 blue = (0, 0, 255)
 light_blue = (173, 216, 230)
+dark_blue = (0, 0, 128)
 red = (255, 0, 0)
 dark_red = (139, 0, 0)
 light_red = (255, 99, 71)
@@ -50,7 +51,10 @@ enemy_spawn_counter = 0
 enemies = []
 enemy_move_counter = 0
 spawn_row, spawn_col = 0, 0
-enemy_types = ["circle", "cross"]
+
+enemy_types = ["circle", "cross", "stripe"]
+enemy_spawn_weights = [0.05, 0.00, 0.95]
+
 spawn_positions = []
 num_of_spawn_enemies = 3
 
@@ -168,6 +172,9 @@ class Enemy(py.sprite.Sprite):
         self.direction = 0
         self.grid = (0, 0)
         self.type = enemy_types[0]
+        self.axis = randint(0, 1)
+        self.edge_flag = False
+        self.patrol_direction = randint(0, 1)
 
     # Methods
 
@@ -195,6 +202,16 @@ class Enemy(py.sprite.Sprite):
                 (self.x + 18, self.y - 18),
                 (self.x - 18, self.y + 18),
                 10,
+            )
+
+        elif self.type == "stripe":
+            py.draw.circle(screen, self.color, (self.x, self.y), enemy_radius)
+            py.draw.line(
+                screen,
+                blue,
+                (self.x - enemy_radius, self.y),
+                (self.x + enemy_radius, self.y),
+                12,
             )
 
         self.set_grid()
@@ -245,7 +262,41 @@ class Enemy(py.sprite.Sprite):
                 (ghost_pos[0] - 6, ghost_pos[1] + 6),
                 5,
             )
+
+        elif self.type == "stripe":
+            if self.axis == 1:
+                if self.patrol_direction == 0:
+                    ghost_pos[1] = self.y - step_size
+                elif self.patrol_direction == 1:
+                    ghost_pos[1] = self.y + step_size
+            elif self.axis == 0:
+                if self.patrol_direction == 0:
+                    ghost_pos[0] = self.x - step_size
+                elif self.patrol_direction == 1:
+                    ghost_pos[0] = self.x + step_size
+
+            py.draw.circle(screen, red, (ghost_pos), (enemy_radius - 10))
+            py.draw.line(
+                screen,
+                blue,
+                (ghost_pos[0] - 12, ghost_pos[1]),
+                (ghost_pos[0] + 12, ghost_pos[1]),
+                6,
+            )
+
         ghost_flag_move = False
+
+    def set_patrol_direction(self, edge):
+        if edge == 0 and self.axis == 1 and self.patrol_direction == 0:
+            self.patrol_direction = 1
+        elif edge == 1 and self.axis == 0 and self.patrol_direction == 1:
+            self.patrol_direction = 0
+        elif edge == 2 and self.axis == 1 and self.patrol_direction == 1:
+            self.patrol_direction = 0
+        elif edge == 3 and self.axis == 0 and self.patrol_direction == 0:
+            self.patrol_direction = 1
+
+            self.edge_flag = False
 
     # Move enemy
     def move_enemy(self):
@@ -277,10 +328,25 @@ class Enemy(py.sprite.Sprite):
                     self.x -= step_size
                     self.y += step_size
 
+            elif self.type == "stripe":
+                if self.axis == 1:
+                    if self.patrol_direction == 0:
+                        self.y -= step_size
+                    elif self.patrol_direction == 1:
+                        self.y += step_size
+                elif self.axis == 0:
+                    if self.patrol_direction == 0:
+                        self.x -= step_size
+                    elif self.patrol_direction == 1:
+                        self.x += step_size
+
             self.set_grid()
 
     # Limit enemy to screen
     def screen_walls(self):
+
+        screen_edge = 0
+
         if self.x <= 0:
             self.x = grid_size[0] / 2
         if self.y <= 0:
@@ -290,11 +356,27 @@ class Enemy(py.sprite.Sprite):
         if self.y >= screen_height - enemy_radius:
             self.y = screen_height - (grid_size[1] / 2)
 
+        if self.x < grid_size[0] and self.axis == 0:
+            screen_edge = 3
+            self.set_patrol_direction(screen_edge)
+        elif self.x > screen_witdh - grid_size[0] and self.axis == 0:
+            screen_edge = 1
+            self.set_patrol_direction(screen_edge)
+
+        if self.y < grid_size[0] and self.axis == 1:
+            screen_edge = 0
+            self.set_patrol_direction(screen_edge)
+        elif self.y > screen_height - grid_size[1] and self.axis == 1:
+            screen_edge = 2
+            self.set_patrol_direction(screen_edge)
+
     def set_color(self):
         if self.type == "circle":
             self.color = dark_red
         elif self.type == "cross":
             self.color = dark_purple
+        elif self.type == "stripe":
+            self.color = dark_red
 
 
 # Functions
@@ -364,12 +446,20 @@ def spawn_enemy(positions):
     if spawn_flag:
 
         for pos in positions:
+
+            enemy_type = choices(enemy_types, enemy_spawn_weights)[0]
+
             new_enemy = Enemy(pos[0], pos[1])
 
-            if player_score > 30:
-                new_enemy.type = enemy_types[randint(0, 1)]
-
-            new_enemy.set_color()
+            if enemy_type == "cross" and player_score > 15:
+                new_enemy.type = "cross"
+                new_enemy.set_color()
+            elif enemy_type == "stripe":  # and player_score > 30:
+                new_enemy.type = "stripe"
+                new_enemy.set_color()
+            else:
+                new_enemy.type = "circle"
+                new_enemy.set_color()
 
             enemies.append(new_enemy)
 
